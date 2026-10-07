@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify - Web Player: Music for everyone</title>
+    <!-- FontAwesome 圖標庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* 
+           ==========================================================================
+           自訂樣式設定說明 (HOW TO CUSTOMIZE)
+           ==========================================================================
+           1. 更改主題顏色 (Accent Color):
+              修改 --spotify-green: #1db954; 為您喜好的顏色 (例如 #ff0055 或 #00d2ff)。
+           
+           2. 更改背景與深色階層 (Dark Background Shades):
+              - --bg-base: 最底層全黑主背景 (#121212)
+              - --bg-surface: 卡片與側邊欄卡片顏色 (#181818)
+              - --bg-highlight: 懸停/高亮背景 (#282828)
+              - --bg-press: 點擊狀態背景 (#333333)
+
+           3. 調整間距與圓角 (Spacing & Border Radius):
+              - --card-radius: 卡片圓角 (預設 8px)
+              - --main-gap: 區塊之間的間距 (預设 16px)
+              - --padding-base: 容器內邊距 (預設 16px)
+           ==========================================================================
+        */
+
+        :root {
+            /* 顏色變數 */
+            --spotify-green: #1db954;
+            --spotify-green-hover: #1ed760;
+            --bg-base: #121212;
+            --bg-surface: #181818;
+            --bg-highlight: #282828;
+            --bg-press: #333333;
+            --bg-elevated: #242424;
+            
+            /* 文字顏色 */
+            --text-base: #ffffff;
+            --text-subdued: #b3b3b3;
+            --text-bright: #ffffff;
+
+            /* 佈局與尺寸變數 */
+            --header-height: 64px;
+            --player-height: 90px;
+            --sidebar-width: 320px;
+            --card-radius: 8px;
+            --main-gap: 16px;
+            --padding-base: 16px;
+            --transition-speed: 0.2s;
+        }
+
+        /* 基礎重置與字型設定 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'CircularStd', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #000000;
+            color: var(--text-base);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 主容器佈局 */
+        .app-container {
+            display: grid;
+            grid-template-columns: var(--sidebar-width) 1fr;
+            grid-template-rows: 1fr;
+            height: calc(100vh - var(--player-height));
+            gap: 8px;
+            padding: 8px 8px 0 8px;
+        }
+
+        /* 側邊欄樣式 (Sidebar) */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .sidebar-box {
+            background-color: var(--bg-base);
+            border-radius: var(--card-radius);
+            padding: var(--padding-base);
+        }
+
+        .nav-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            color: var(--text-subdued);
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: color var(--transition-speed) ease;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            color: var(--text-bright);
+        }
+
+        .nav-item i {
+            font-size: 1.4rem;
+        }
+
+        /* 音樂庫區域 (Library Section) */
+        .library-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 12px 8px;
+        }
+
+        .library-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 8px 12px 8px;
+            color: var(--text-subdued);
+        }
+
+        .library-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+
+        .library-title:hover {
+            color: var(--text-bright);
+        }
+
+        .library-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-subdued);
+            font-size: 1.1rem;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .icon-btn:hover {
+            color: var(--text-bright);
+            background-color: var(--bg-highlight);
+        }
+
+        /* 音樂庫標籤過濾 */
+        .library-tags {
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .library-tags::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tag-pill {
+            background-color: var(--bg-highlight);
+            color: var(--text-bright);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            border: none;
+            transition: background-color var(--transition-speed) ease;
+        }
+
+        .tag-pill:hover {
+            background-color: var(--bg-press);
+        }
+
+        .tag-pill.active {
+            background-color: var(--text-bright);
+            color: #000000;
+        }
+
+        /* 側邊庫項目清單 */
+        .library-list {
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
+        .library-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .library-list::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .media-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color var(--transition-speed) ease;
+        }
+
+        .media-item:hover {
+            background-color: var(--bg-highlight);
+        }
+
+        .media-thumb {
+            width: 48px;
+            height: 48px;
+            border-radius: 4px;
+            object-fit: cover;
+            background-color: #333;
+            flex-shrink: 0;
+        }
+
+        .media-thumb.circle {
+            border-radius: 50%;
+        }
+
+        .media-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .media-title {
+            color: var(--text-bright);
+            font-size: 0.9rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .media-sub {
+            color: var(--text-subdued);
+            font-size: 0.8rem;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 主內容區塊 (Main Content Area) */
+        .main-content {
+            background-color: var(--bg-base);
+            border-radius: var(--card-radius);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .main-content::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        .main-content::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 頂部導覽列 (Top Header Bar) */
+        .top-bar {
+            position: sticky;
+            top: 0;
+            height: var(--header-height);
+            background-color: rgba(18, 18, 18, 0.85);
+            backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 var(--padding-base);
+            z-index: 100;
+        }
+
+        .nav-history {
+            display: flex;
+            gap: 8px;
+        }
+
+        .history-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: rgba(0, 0, 0, 0.6);
+            border: none;
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .search-box-header {
+            display: flex;
+            align-items: center;
+            background-color: var(--bg-highlight);
+            border-radius: 50px;
+            padding: 8px 16px;
+            width: 320px;
+            gap: 10px;
+            border: 1px solid transparent;
+            transition: border var(--transition-speed);
+        }
+
+        .search-box-header:focus-within {
+            border: 2px solid var(--text-bright);
+        }
+
+        .search-box-header input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-bright);
+            width: 100%;
+            font-size: 0.85rem;
+        }
+
+        .top-user-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .btn-pill {
+            background-color: var(--text-bright);
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        .btn-pill:hover {
+            transform: scale(1.04);
+        }
+
+        .btn-dark-pill {
+            background-color: rgba(0,0,0,0.7);
+            color: var(--text-bright);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* 內容區塊結構 */
+        .content-inner {
+            padding: 0 var(--padding-base) var(--padding-base) var(--padding-base);
+        }
+
+        /* 分類篩選按鈕 (Category Pills) */
+        .category-filter-bar {
+            display: flex;
+            gap: 8px;
+            margin: 12px 0 20px 0;
+        }
+
+        .category-btn {
+            background-color: var(--bg-highlight);
+            color: var(--text-bright);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .category-btn.active {
+            background-color: var(--text-bright);
+            color: #000;
+        }
+
+        /* 午好 / 最近播放大型網格 (Recent Top Grid) */
+        .hero-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        @media (max-width: 1024px) {
+            .hero-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .hero-card {
+            background-color: rgba(255, 255, 255, 0.07);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+            transition: background-color var(--transition-speed) ease;
+        }
+
+        .hero-card:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .hero-card img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+        }
+
+        .hero-card-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 0 16px;
+            flex: 1;
+        }
+
+        /* 播放懸浮按鈕 */
+        .play-btn-float {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background-color: var(--spotify-green);
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            position: absolute;
+            right: 16px;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.3s ease;
+        }
+
+        .hero-card:hover .play-btn-float,
+        .music-card:hover .play-btn-float {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .play-btn-float:hover {
+            background-color: var(--spotify-green-hover);
+            transform: scale(1.06) !important;
+        }
+
+        /* 標準音樂卡片網格 (Standard Card Grid) */
+        .section-container {
+            margin-bottom: 36px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-bright);
+            letter-spacing: -0.5px;
+        }
+
+        .section-title:hover {
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .see-all {
+            color: var(--text-subdued);
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .see-all:hover {
+            text-decoration: underline;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: var(--main-gap);
+        }
+
+        .music-card {
+            background-color: var(--bg-surface);
+            padding: 16px;
+            border-radius: var(--card-radius);
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .music-card:hover {
+            background-color: var(--bg-highlight);
+        }
+
+        .card-cover-wrapper {
+            position: relative;
+            width: 100%;
+            padding-top: 100%; /* 1:1 Aspect Ratio */
+            margin-bottom: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            background-color: #282828;
+        }
+
+        .card-cover-wrapper img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-cover-wrapper.artist-circle,
+        .card-cover-wrapper.artist-circle img {
+            border-radius: 50%;
+        }
+
+        .card-cover-wrapper .play-btn-float {
+            bottom: 8px;
+            right: 8px;
+        }
+
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-bright);
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-desc {
+            font-size: 0.8rem;
+            color: var(--text-subdued);
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* 底部播放器列 (Bottom Player Bar) */
+        .player-bar {
+            height: var(--player-height);
+            background-color: #000000;
+            border-top: 1px solid #282828;
+            display: grid;
+            grid-template-columns: 30% 40% 30%;
+            align-items: center;
+            padding: 0 16px;
+            z-index: 200;
+        }
+
+        /* 左側：正在播放歌曲資訊 */
+        .player-track-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .track-img {
+            width: 56px;
+            height: 56px;
+            border-radius: 4px;
+            object-fit: cover;
+            background-color: #333;
+        }
+
+        .track-details {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-width: 180px;
+        }
+
+        .track-title {
+            font-size: 0.85rem;
+            color: var(--text-bright);
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+
+        .track-title:hover {
+            text-decoration: underline;
+        }
+
+        .track-artist {
+            font-size: 0.75rem;
+            color: var(--text-subdued);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+
+        .track-artist:hover {
+            text-decoration: underline;
+            color: var(--text-bright);
+        }
+
+        .like-btn {
+            background: none;
+            border: none;
+            color: var(--text-subdued);
+            cursor: pointer;
+            font-size: 1rem;
+            margin-left: 8px;
+        }
+
+        .like-btn:hover, .like-btn.active {
+            color: var(--spotify-green);
+        }
+
+        /* 中間：播放控制面板 */
+        .player-controls-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-buttons {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .ctrl-btn {
+            background: none;
+            border: none;
+            color: var(--text-subdued);
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: color var(--transition-speed);
+        }
+
+        .ctrl-btn:hover {
+            color: var(--text-bright);
+        }
+
+        .ctrl-btn.active {
+            color: var(--spotify-green);
+            position: relative;
+        }
+
+        .ctrl-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            background-color: var(--spotify-green);
+            border-radius: 50%;
+        }
+
+        .play-pause-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--text-bright);
+            color: #000000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .play-pause-btn:hover {
+            transform: scale(1.08);
+        }
+
+        /* 時間進度條 */
+        .playback-bar {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .time-text {
+            font-size: 0.7rem;
+            color: var(--text-subdued);
+            min-width: 35px;
+            text-align: center;
+        }
+
+        .progress-slider-wrapper {
+            flex: 1;
+            height: 12px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .slider-track {
+            width: 100%;
+            height: 4px;
+            background-color: #4d4d4d;
+            border-radius: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slider-fill {
+            height: 100%;
+            background-color: var(--text-bright);
+            width: 30%;
+            border-radius: 2px;
+        }
+
+        .progress-slider-wrapper:hover .slider-fill {
+            background-color: var(--spotify-green);
+        }
+
+        /* 右側：音量與附加控制 */
+        .player-extra-controls {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 14px;
+            color: var(--text-subdued);
+        }
+
+        .volume-bar {
+            width: 100px;
+            height: 12px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        /* 響應式調整 */
+        @media (max-width: 800px) {
+            .app-container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                display: none;
+            }
+            .hero-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 主應用程式容器 -->
+    <div class="app-container">
+        
+        <!-- 左側導覽列 (Sidebar Navigation) -->
+        <aside class="sidebar">
+            
+            <!-- 首頁 / 搜尋導覽 -->
+            <div class="sidebar-box">
+                <ul class="nav-list">
+                    <li class="nav-item active">
+                        <i class="fa-solid fa-house"></i>
+                        <span>首頁</span>
+                    </li>
+                    <li class="nav-item">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>搜尋</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 你的音樂庫 (Library Panel) -->
+            <div class="sidebar-box library-section">
+                <div class="library-header">
+                    <div class="library-title">
+                        <i class="fa-solid fa-lines-leaning"></i>
+                        <span>你的音樂庫</span>
+                    </div>
+                    <div class="library-actions">
+                        <button class="icon-btn" title="建立播放清單或資料夾"><i class="fa-solid fa-plus"></i></button>
+                        <button class="icon-btn" title="顯示更多"><i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- 庫篩選標籤 -->
+                <div class="library-tags">
+                    <button class="tag-pill active">播放清單</button>
+                    <button class="tag-pill">藝人</button>
+                    <button class="tag-pill">專輯</button>
+                    <button class="tag-pill">Podcast</button>
+                </div>
+
+                <!-- 音樂庫項目清單 -->
+                <div class="library-list">
+                    <div class="media-item">
+                        <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100&h=100&fit=crop" class="media-thumb" alt="Liked Songs">
+                        <div class="media-info">
+                            <span class="media-title">已按讚的歌曲</span>
+                            <span class="media-sub">播放清單 • 328 首歌曲</span>
+                        </div>
+                    </div>
+
+                    <div class="media-item">
+                        <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=100&h=100&fit=crop" class="media-thumb" alt="Daily Mix 1">
+                        <div class="media-info">
+                            <span class="media-title">Daily Mix 1</span>
+                            <span class="media-sub">專屬推薦 • 周傑倫, 告五人, 蔡依林</span>
+                        </div>
+                    </div>
+
+                    <div class="media-item">
+                        <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&h=100&fit=crop" class="media-thumb" alt="EDM Party">
+                        <div class="media-info">
+                            <span class="media-title">深夜咖啡館 Jazz</span>
+                            <span class="media-sub">播放清單 • Spotify</span>
+                        </div>
+                    </div>
+
+                    <div class="media-item">
+                        <img src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=100&h=100&fit=crop" class="media-thumb circle" alt="Jay Chou">
+                        <div class="media-info">
+                            <span class="media-title">周傑倫 (Jay Chou)</span>
+                            <span class="media-sub">藝人</span>
+                        </div>
+                    </div>
+
+                    <div class="media-item">
+                        <img src="https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=100&h=100&fit=crop" class="media-thumb" alt="Rock Heavy Classics">
+                        <div class="media-info">
+                            <span class="media-title">華語流行金曲 2000s</span>
+                            <span class="media-sub">播放清單 • Spotify</span>
+                        </div>
+                    </div>
+
+                    <div class="media-item">
+                        <img src="https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=100&h=100&fit=crop" class="media-thumb circle" alt="Taylor Swift">
+                        <div class="media-info">
+                            <span class="media-title">Taylor Swift</span>
+                            <span class="media-sub">藝人</span>
+                        </div>
+                    </div>
+
+                    <div class="media-item">
+                        <img src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=100&h=100&fit=crop" class="media-thumb" alt="Podcast Tech">
+                        <div class="media-info">
+                            <span class="media-title">科技島讀 Podcast</span>
+                            <span class="media-sub">Podcast 節目</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 右側主要內容區 (Main Content) -->
+        <main class="main-content">
+            
+            <!-- 頂部 sticky 導覽列 -->
+            <header class="top-bar">
+                <div class="nav-history">
+                    <button class="history-btn"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button class="history-btn"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+
+                <div class="search-box-header">
+                    <i class="fa-solid fa-magnifying-glass" style="color: #b3b3b3;"></i>
+                    <input type="text" placeholder="你想聆聽什麼內容？">
+                </div>
+
+                <div class="top-user-actions">
+                    <button class="btn-pill">探索 Premium</button>
+                    <button class="btn-dark-pill"><i class="fa-regular fa-circle-down"></i> 安裝 App</button>
+                    <button class="history-btn"><i class="fa-regular fa-bell"></i></button>
+                    <button class="history-btn" style="background-color: #535353;"><i class="fa-solid fa-user"></i></button>
+                </div>
+            </header>
+
+            <div class="content-inner">
+                
+                <!-- 頂部分類標籤 -->
+                <div class="category-filter-bar">
+                    <button class="category-btn active">全部</button>
+                    <button class="category-btn">音樂</button>
+                    <button class="category-btn">Podcast</button>
+                </div>
+
+                <!-- 午好 / 最近播放大型網格 -->
+                <section class="section-container">
+                    <div class="hero-grid">
+                        <div class="hero-card">
+                            <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&h=120&fit=crop" alt="Liked Songs">
+                            <span class="hero-card-title">已按讚的歌曲</span>
+                            <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                        </div>
+
+                        <div class="hero-card">
+                            <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=120&h=120&fit=crop" alt="Mix 1">
+                            <span class="hero-card-title">Daily Mix 1</span>
+                            <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                        </div>
+
+                        <div class="hero-card">
+                            <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&h=120&fit=crop" alt="Lo-Fi Beats">
+                            <span class="hero-card-title">Lo-Fi Chill Beats</span>
+                            <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                        </div>
+
+                        <div class="hero-card">
+                            <img src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=120&h=120&fit=crop" alt="Top 50 Global">
+                            <span class="hero-card-title">全球 50 強榜單</span>
+                            <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                        </div>
+
+                        <div class="hero-card">
+                            <img src="https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=120&h=120&fit=crop" alt="Mandopop Classics">
+                            <span class="hero-card-title">華語流行金曲榜</span>
+                            <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                        </div>
+
+                        <div class="hero-card">
+                            <img src="https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=120&h=120&fit=crop" alt="Acoustic Chill">
+                            <span class="hero-card-title">不插電吉他輕音樂</span>
+                            <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 專為你打造 (Made For You) -->
+                <section class="section-container">
+                    <div class="section-header">
+                        <h2 class="section-title">專為你打造</h2>
+                        <a href="#" class="see-all">顯示全部</a>
+                    </div>
+                    <div class="card-grid">
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&h=300&fit=crop" alt="Daily Mix 1">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">Daily Mix 1</div>
+                            <div class="card-desc">告五人, 理想混蛋, 茄子蛋 以及更多熱門華語樂團作品。</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=300&h=300&fit=crop" alt="Daily Mix 2">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">Daily Mix 2</div>
+                            <div class="card-desc">Taylor Swift, Ed Sheeran, Ariana Grande 等西洋流行經典。</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&h=300&fit=crop" alt="Discover Weekly">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">每周新發現</div>
+                            <div class="card-desc">根據你的聆聽喜好，每星期的每週一更新專屬於你的品味新歌。</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&h=300&fit=crop" alt="Release Radar">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">雷達新歌榜</div>
+                            <div class="card-desc">掌握你關注的藝人發行的最新單曲與專輯，每週五定時更新。</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&h=300&fit=crop" alt="Time Capsule">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">時光膠囊</div>
+                            <div class="card-desc">帶你重溫青春時期的經典曲目，回味當年的感動。</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 最近播放 (Recently Played) -->
+                <section class="section-container">
+                    <div class="section-header">
+                        <h2 class="section-title">最近播放</h2>
+                        <a href="#" class="see-all">顯示全部</a>
+                    </div>
+                    <div class="card-grid">
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=300&h=300&fit=crop" alt="Pop Beats">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">深夜放鬆 Chillout</div>
+                            <div class="card-desc">適合夜間讀書與沉思的放鬆電子氛圍音樂。</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1487180144351-b8472da7d491?w=300&h=300&fit=crop" alt="Classical Chill">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">古典鋼琴名曲</div>
+                            <div class="card-desc">蕭邦、貝多芬與莫札特的精選經典鋼琴獨奏曲。</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=300&h=300&fit=crop" alt="Workout Mix">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">健身重低音 EDM</div>
+                            <div class="card-desc">激勵人心的強烈節奏，為你的訓練注入無限能量。</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop" alt="Indie Folk">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">獨立民謠吉他</div>
+                            <div class="card-desc">清爽的木吉他弦音與溫暖嗓音，陪你渡過午後時光。</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300&h=300&fit=crop" alt="K-Pop Hits">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">K-Pop 大勢熱門榜</div>
+                            <div class="card-desc">BTS, BLACKPINK, NewJeans 等最新韓流熱門單曲。</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 熱門藝人 (Popular Artists) -->
+                <section class="section-container">
+                    <div class="section-header">
+                        <h2 class="section-title">熱門藝人</h2>
+                        <a href="#" class="see-all">顯示全部</a>
+                    </div>
+                    <div class="card-grid">
+                        <div class="music-card">
+                            <div class="card-cover-wrapper artist-circle">
+                                <img src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop" alt="Jay Chou">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">周傑倫</div>
+                            <div class="card-desc">藝人</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper artist-circle">
+                                <img src="https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=300&h=300&fit=crop" alt="Taylor Swift">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">Taylor Swift</div>
+                            <div class="card-desc">藝人</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper artist-circle">
+                                <img src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300&h=300&fit=crop" alt="Accusefive">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">告五人</div>
+                            <div class="card-desc">藝人</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper artist-circle">
+                                <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&h=300&fit=crop" alt="Ed Sheeran">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">Ed Sheeran</div>
+                            <div class="card-desc">藝人</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper artist-circle">
+                                <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&h=300&fit=crop" alt="Yoasobi">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">YOASOBI</div>
+                            <div class="card-desc">藝人</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 熱門專輯與單曲 (Popular Albums & Singles) -->
+                <section class="section-container">
+                    <div class="section-header">
+                        <h2 class="section-title">熱門專輯與單曲</h2>
+                        <a href="#" class="see-all">顯示全部</a>
+                    </div>
+                    <div class="card-grid">
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&h=300&fit=crop" alt="Album Cover">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">偉大的作品</div>
+                            <div class="card-desc">周傑倫 • 2022 • 專輯</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=300&h=300&fit=crop" alt="Album Cover">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">Midnights (3am Edition)</div>
+                            <div class="card-desc">Taylor Swift • 2022 • 專輯</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1487180144351-b8472da7d491?w=300&h=300&fit=crop" alt="Album Cover">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">帶你飛</div>
+                            <div class="card-desc">告五人 • 2023 • 專輯</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=300&h=300&fit=crop" alt="Album Cover">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title">First Love (15th Anniversary)</div>
+                            <div class="card-desc">宇多田光 • 單曲</div>
+                        </div>
+
+                        <div class="music-card">
+                            <div class="card-cover-wrapper">
+                                <img src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&h=300&fit=crop" alt="Album Cover">
+                                <div class="play-btn-float"><i class="fa-solid fa-play"></i></div>
+                            </div>
+                            <div class="card-title"> includes (Deluxe)</div>
+                            <div class="card-desc">Ed Sheeran • 專輯</div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- 底部固定音樂播放器控制列 (Bottom Player Bar) -->
+    <footer class="player-bar">
+        
+        <!-- 左側：正在播放曲目資訊 -->
+        <div class="player-track-info">
+            <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100&h=100&fit=crop" class="track-img" id="player-img" alt="Current Track">
+            <div class="track-details">
+                <span class="track-title" id="player-title">晴天</span>
+                <span class="track-artist" id="player-artist">周傑倫</span>
+            </div>
+            <button class="like-btn active" id="like-btn" title="儲存至你的音樂庫">
+                <i class="fa-solid fa-heart"></i>
+            </button>
+        </div>
+
+        <!-- 中間：播放播放按鈕與時間軸 -->
+        <div class="player-controls-container">
+            <div class="control-buttons">
+                <button class="ctrl-btn" title="隨機播放" id="shuffle-btn"><i class="fa-solid fa-shuffle"></i></button>
+                <button class="ctrl-btn" title="上一首" id="prev-btn"><i class="fa-solid fa-backward-step"></i></button>
+                <button class="play-pause-btn" id="main-play-btn" title="播放"><i class="fa-solid fa-play"></i></button>
+                <button class="ctrl-btn" title="下一首" id="next-btn"><i class="fa-solid fa-forward-step"></i></button>
+                <button class="ctrl-btn" title="重複播放" id="repeat-btn"><i class="fa-solid fa-repeat"></i></button>
+            </div>
+
+            <div class="playback-bar">
+                <span class="time-text" id="current-time">1:24</span>
+                <div class="progress-slider-wrapper" id="progress-wrapper">
+                    <div class="slider-track">
+                        <div class="slider-fill" id="progress-fill" style="width: 35%;"></div>
+                    </div>
+                </div>
+                <span class="time-text" id="total-time">4:29</span>
+            </div>
+        </div>
+
+        <!-- 右側：音量與其他輔助按鈕 -->
+        <div class="player-extra-controls">
+            <button class="ctrl-btn" title="歌詞"><i class="fa-solid fa-microphone"></i></button>
+            <button class="ctrl-btn" title="佇列"><i class="fa-solid fa-bars"></i></button>
+            <button class="ctrl-btn" title="連接至裝置"><i class="fa-solid fa-computer"></i></button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="ctrl-btn" id="volume-icon" title="靜音"><i class="fa-solid fa-volume-high"></i></button>
+                <div class="volume-bar" id="volume-wrapper">
+                    <div class="slider-track">
+                        <div class="slider-fill" id="volume-fill" style="width: 70%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript 交互邏輯 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // 播放器狀態
+            let isPlaying = false;
+            let isLiked = true;
+            let isShuffle = false;
+            let isRepeat = false;
+
+            // 曲目資料庫 (Mock Music Library)
+            const playlist = [
+                {
+                    title: "晴天",
+                    artist: "周傑倫",
+                    cover: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100&h=100&fit=crop",
+                    duration: "4:29"
+                },
+                {
+                    title: "愛在西元前",
+                    artist: "周傑倫",
+                    cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&h=100&fit=crop",
+                    duration: "3:54"
+                },
+                {
+                    title: "披星戴月的想你",
+                    artist: "告五人",
+                    cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=100&h=100&fit=crop",
+                    duration: "5:42"
+                },
+                {
+                    title: "Anti-Hero",
+                    artist: "Taylor Swift",
+                    cover: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=100&h=100&fit=crop",
+                    duration: "3:20"
+                },
+                {
+                    title: "Shape of You",
+                    artist: "Ed Sheeran",
+                    cover: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=100&h=100&fit=crop",
+                    duration: "3:53"
+                }
+            ];
+
+            let currentTrackIndex = 0;
+
+            // DOM 元素引用
+            const mainPlayBtn = document.getElementById('main-play-btn');
+            const playIcon = mainPlayBtn.querySelector('i');
+            const likeBtn = document.getElementById('like-btn');
+            const likeIcon = likeBtn.querySelector('i');
+            const shuffleBtn = document.getElementById('shuffle-btn');
+            const repeatBtn = document.getElementById('repeat-btn');
+            
+            const trackImg = document.getElementById('player-img');
+            const trackTitle = document.getElementById('player-title');
+            const trackArtist = document.getElementById('player-artist');
+            const totalTime = document.getElementById('total-time');
+
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+
+            // 1. 切換播放 / 暫停
+            mainPlayBtn.addEventListener('click', () => {
+                isPlaying = !isPlaying;
+                if (isPlaying) {
+                    playIcon.className = 'fa-solid fa-pause';
+                } else {
+                    playIcon.className = 'fa-solid fa-play';
+                }
+            });
+
+            // 2. 切換按讚狀態
+            likeBtn.addEventListener('click', () => {
+                isLiked = !isLiked;
+                if (isLiked) {
+                    likeIcon.className = 'fa-solid fa-heart';
+                    likeBtn.classList.add('active');
+                } else {
+                    likeIcon.className = 'fa-regular fa-heart';
+                    likeBtn.classList.remove('active');
+                }
+            });
+
+            // 3. 隨機播放與重複播放開關
+            shuffleBtn.addEventListener('click', () => {
+                isShuffle = !isShuffle;
+                shuffleBtn.classList.toggle('active', isShuffle);
+            });
+
+            repeatBtn.addEventListener('click', () => {
+                isRepeat = !isRepeat;
+                repeatBtn.classList.toggle('active', isRepeat);
+            });
+
+            // 4. 更新當前歌曲資訊
+            function loadTrack(index) {
+                const track = playlist[index];
+                trackImg.src = track.cover;
+                trackTitle.textContent = track.title;
+                trackArtist.textContent = track.artist;
+                totalTime.textContent = track.duration;
+            }
+
+            // 5. 上一首 / 下一首 切換
+            nextBtn.addEventListener('click', () => {
+                currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
+                loadTrack(currentTrackIndex);
+                if (!isPlaying) {
+                    isPlaying = true;
+                    playIcon.className = 'fa-solid fa-pause';
+                }
+            });
+
+            prevBtn.addEventListener('click', () => {
+                currentTrackIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length;
+                loadTrack(currentTrackIndex);
+                if (!isPlaying) {
+                    isPlaying = true;
+                    playIcon.className = 'fa-solid fa-pause';
+                }
+            });
+
+            // 6. 綁定卡片點擊播放功能
+            const allMusicCards = document.querySelectorAll('.music-card, .hero-card');
+            allMusicCards.forEach((card, idx) => {
+                card.addEventListener('click', () => {
+                    const cardTitle = card.querySelector('.card-title, .hero-card-title');
+                    if (cardTitle) {
+                        trackTitle.textContent = cardTitle.textContent;
+                        trackArtist.textContent = "Spotify精選";
+                    }
+                    isPlaying = true;
+                    playIcon.className = 'fa-solid fa-pause';
+                });
+            });
+
+            // 7. 分類按鈕選取效果
+            const filterBtns = document.querySelectorAll('.category-btn');
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
